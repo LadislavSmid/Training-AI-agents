@@ -1,9 +1,10 @@
 import openai
 from openai import OpenAI
-import yfinance as yf
 import json
 import os
 from dotenv import load_dotenv
+from MCPServer import MCPStockServer
+import asyncio
 
 # Načtení proměnných prostředí z .env souboru
 load_dotenv()
@@ -11,57 +12,37 @@ load_dotenv()
 # Inicializace OpenAI klienta
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# Definice dostupných funkcí
-def get_stock_price(symbol):
-    """Získá aktuální cenu akcie podle symbolu"""
-    try:
-        stock = yf.Ticker(symbol)
-        info = stock.info
-        current_price = info.get('currentPrice') or info.get('regularMarketPrice')
-        
-        if current_price is None:
-           
-            hist = stock.history(period="1d")
-            if not hist.empty:
-                current_price = hist['Close'].iloc[-1]
-        
-        if current_price:
-            return {
-                "symbol": symbol,
-                "price": round(current_price, 2),
-                "currency": info.get('currency', 'USD'),
-                "name": info.get('longName', symbol)
-            }
-        else:
-            return {"error": f"Nepodařilo se získat cenu pro symbol {symbol}"}
-    except Exception as e:
-        return {"error": f"Chyba při získávání ceny: {str(e)}"}
+# Inicializace MCP serveru (běží v rámci aplikace)
+mcp_server = MCPStockServer()
 
-# Definice tools pro OpenAI
-tools = [
-    {
-        "type": "function",
-        "function": {
-            "name": "get_stock_price",
-            "description": "Získá aktuální cenu akcie podle burzovního symbolu (např. AAPL pro Apple, MSFT pro Microsoft, TSLA pro Tesla)",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "symbol": {
-                        "type": "string",
-                        "description": "Burzovní symbol akcie (např. AAPL, MSFT, GOOGL)"
-                    }
-                },
-                "required": ["symbol"]
+# Získání tools z MCP serveru pro OpenAI
+async def get_tools_from_mcp():
+    """Získá definice tools z MCP serveru a převede je na OpenAI formát"""
+    tools_list = await mcp_server.get_tools()
+    
+    openai_tools = []
+    for tool in tools_list:
+        openai_tools.append({
+            "type": "function",
+            "function": {
+                "name": tool.name,
+                "description": tool.description,
+                "parameters": tool.inputSchema
             }
-        }
-    }
-]
+        })
+    return openai_tools
 
-# Mapa funkcí pro volání
-available_functions = {
-    "get_stock_price": get_stock_price
-}
+# Získání tools při startu
+tools = asyncio.run(get_tools_from_mcp())
+
+# Funkce pro volání MCP serveru
+async def call_mcp_tool(tool_name: str, arguments: dict):
+    """Volá nástroj na MCP serveru"""
+    return await mcp_server.call_tool_method(tool_name, arguments)
+
+def call_tool_sync(tool_name: str, arguments: dict):
+    """Synchronní wrapper pro volání MCP tools"""
+    return asyncio.run(call_mcp_tool(tool_name, arguments))
 
 class AIAgent:
     def __init__(self, client, model="gpt-4"):
@@ -99,22 +80,21 @@ class AIAgent:
                     
                     self.conversation_history.append(response_message)
                     
-                    # Provedeme všechny požadované volání funkcí
+                    # Provedeme všechny požadované volání funkcí přes MCP server
                     for tool_call in tool_calls:
                         function_name = tool_call.function.name
                         function_args = json.loads(tool_call.function.arguments)
                         
-                        # Zavoláme příslušnou funkci
-                        if function_name in available_functions:
-                            function_response = available_functions[function_name](**function_args)
-                            
-                            # Přidáme výsledek funkce do historie
-                            self.conversation_history.append({
-                                "tool_call_id": tool_call.id,
-                                "role": "tool",
-                                "name": function_name,
-                                "content": json.dumps(function_response)
-                            })
+                        # Zavoláme funkci přes MCP server
+                        function_response = call_tool_sync(function_name, function_args)
+                        
+                        # Přidáme výsledek funkce do historie
+                        self.conversation_history.append({
+                            "tool_call_id": tool_call.id,
+                            "role": "tool",
+                            "name": function_name,
+                            "content": json.dumps(function_response)
+                        })
                     continue  # Pokračujeme v cyklu pro další odpověď AI        
                 else:
                     # Pokud AI nechtěla zavolat funkci, vrátíme běžnou odpověď
