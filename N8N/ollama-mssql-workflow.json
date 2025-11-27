@@ -1,0 +1,201 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "public": true,
+        "initialMessages": "Ahoj! Jsem AI asistent běžící na Ollama. Jak ti mohu pomoci?",
+        "options": {
+          "allowFileUploads": false,
+          "allowedFilesMimeTypes": "",
+          "showWelcomeScreen": true,
+          "subtitle": "Lokální AI asistent",
+          "title": "Ollama Chat"
+        }
+      },
+      "id": "b85590c9-ccee-4386-a159-818099c74a90",
+      "name": "Chat Trigger",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -560,
+        -160
+      ],
+      "webhookId": "ollama-chat-trigger"
+    },
+    {
+      "parameters": {
+        "model": "gpt-oss:latest",
+        "options": {}
+      },
+      "id": "189168e5-5d2f-4185-ac97-a358b1a6e054",
+      "name": "Ollama Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        -256,
+        80
+      ],
+      "credentials": {
+        "ollamaApi": {
+          "id": "Mm0hT7JxqueXOOXF",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.sessionId }}"
+      },
+      "id": "c9335cb7-2c1e-4295-b9cd-879e749cf932",
+      "name": "Window Buffer Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.2,
+      "position": [
+        -64,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "d3d64575-6abd-4574-88d8-b3bbff1310b6",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        -160,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Get list of available tables in DB.",
+        "operation": "executeQuery",
+        "query": "SELECT * FROM sys.Tables"
+      },
+      "type": "n8n-nodes-base.microsoftSqlTool",
+      "typeVersion": 1.1,
+      "position": [
+        256,
+        48
+      ],
+      "id": "46a18df4-c26a-40cd-a2fd-45c2c6d6e99b",
+      "name": "Microsoft SQL",
+      "credentials": {
+        "microsoftSql": {
+          "id": "fh9n8FIiocTppmOi",
+          "name": "Microsoft SQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Get data from table. SELECT * FROM {{ $fromAI('table_name') }}",
+        "operation": "executeQuery",
+        "query": "SELECT * FROM {{ $fromAI('table_name') }}"
+      },
+      "type": "n8n-nodes-base.microsoftSqlTool",
+      "typeVersion": 1.1,
+      "position": [
+        112,
+        64
+      ],
+      "id": "8057b0e3-00fc-4a10-aba5-1265faf3a4f5",
+      "name": "Microsoft SQL1",
+      "credentials": {
+        "microsoftSql": {
+          "id": "fh9n8FIiocTppmOi",
+          "name": "Microsoft SQL account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.toolCalculator",
+      "typeVersion": 1,
+      "position": [
+        368,
+        -64
+      ],
+      "id": "682faa1c-ece7-42ba-a1af-e1d11a970170",
+      "name": "Calculator"
+    }
+  ],
+  "connections": {
+    "Chat Trigger": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Window Buffer Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Microsoft SQL": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Microsoft SQL1": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculator": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "eeda5db639cec9ba228918f8d285fd815499617a55cf29c2203edffa22381aa6"
+  }
+}
