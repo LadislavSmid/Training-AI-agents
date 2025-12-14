@@ -13,7 +13,7 @@ mcp_server_path = os.path.join(os.path.dirname(__file__), '')
 sys.path.insert(0, os.path.abspath(mcp_server_path))
 
 try:
-    from server import get_all_mcp_tools, DatabaseConfig
+    from MSAgent.mcp_mssql import get_all_mcp_tools, DatabaseConfig
 except ImportError:
     print(f"Error: Cannot import 'server' from path: {mcp_server_path}")
     print("Check if the server.py file exists in this folder.")
